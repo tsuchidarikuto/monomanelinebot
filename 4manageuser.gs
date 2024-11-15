@@ -7,16 +7,18 @@ function getUserState(userId){
     isFileUploaded:USER_DATA.getRange(userRow,5).getValue()===true,
     isAnalyzeCompleted:USER_DATA.getRange(userRow,6).getValue()===true,
     openAISystemPrompt:USER_DATA.getRange(userRow,7).getValue(),
+    conversationLog:USER_DATA.getRange(userRow,8).getValue()||""
   };
 }
 
 function updateUserState(userId,state){
   const userRow=findUserRow(userId);
   if(userRow!==-1){
-    USER_DATA.getRange(userRow,5,1,3).setValues([[
+    USER_DATA.getRange(userRow,5,1,4).setValues([[
       state.isFileUploaded,
       state.isAnalyzeCompleted,
-      state.openAISystemPrompt
+      state.openAISystemPrompt,
+      state.conversationLog
     ]]);
   }
 }
@@ -69,7 +71,13 @@ function fetchUserProfile(userId){
   }
 }
 
-
-
+function deleteUserData(userId) {
+  const row = findUserRow(userId);
+  if (row !== -1) { // 見つからない場合に備えてチェックを追加
+    USER_DATA.deleteRow(row);
+  } else {
+    Logger.log('ユーザーが見つかりませんでした');
+  }
+}
 
 

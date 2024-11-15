@@ -5,7 +5,7 @@ const OPENAI_API_KEY=PropertiesService.getScriptProperties().getProperty("OPENAI
 const OPENAI_MODEL="gpt-4o-mini";
 const OPENAI_URL="https://api.openai.com/v1/chat/completions"
 
-const SHEET_ID="1q4ar8R7dkypgB9pYsHESJEmyz7EehOckeGHw9thfzGM";
+const SHEET_ID=PropertiesService.getScriptProperties().getProperty("spreadSheetId");
 const USER_DATA=SpreadsheetApp.openById(SHEET_ID).getSheets()[0];
 
 
@@ -31,6 +31,10 @@ function execute(event){
   if(EVENT_TYPE==="follow"){
     eve_follow(REPLY_TOKEN,USER_ID);
   }
+  else if(EVENT_TYPE==="unfollow"){
+    Logger.log(`delete ${USER_ID}`)
+    deleteUserData(USER_ID);
+  }
   else if(EVENT_TYPE==="message"){
     if(event.message.type==="text"){
       
@@ -44,7 +48,7 @@ function execute(event){
       }else if(userState.isAnalyzeCompleted===false){
         replyAsMonomane(REPLY_TOKEN,"トークを分析中だよ！もうちょっと待っててね！");
       }else{
-        replyAsMonomane(REPLY_TOKEN,text,userState.openAISystemPrompt);
+        replyAsMonomane(REPLY_TOKEN,text,userState.openAISystemPrompt,USER_ID);
       }
       
     }
@@ -77,13 +81,22 @@ function eve_follow(replyToken,userId){
 }
 
 function sendWelcomeMessage(replyToken){
- const desc_message=`こんにちは！友達追加ありがとうございます\n
-  このボットは特定の人物の会話パターンを学習し、そのスタイルで返信することができます。\n
-  使い方：
-  1. トーク画面右上の三本線→設定→トーク履歴を送信 で作成されたトーク履歴を参照して真似してほしい人物のトークをテキスト化します。
-  2. そのテキストをこのボットのトーク画面に貼り付けてください。
-  3. これ以降、ボットはその人物のスタイルでメッセージを返信します。\n
-  ※「リセット」と送信すると、元の設定に戻ります。`;
+ const desc_message=`こんにちは！友達追加ありがとうございます！🎠
+
+  このボットは特定の人物の会話パターンを学習し、そのスタイルで返信することができるよ🐄
+
+使い方：
+  1.真似してほしい人のトークを開いてね🐩
+
+  2.トーク履歴を送るよ🐕
+  　➡トーク画面右上の三本線
+  　➡設定
+  　➡トーク履歴を送信
+  　➡送信先を「ものまねbot」
+
+  3. 何でも話しかけてみて！🐈
+
+※「リセット」と送信すると、元の設定に戻ります。`;
   sendReplyMessage(replyToken,desc_message);
 }
 
@@ -109,8 +122,21 @@ function getFileContent(fileid){
   
 }
 
-function replyAsMonomane(REPLY_TOKEN,text,systemprompt){
-  const result=callOpenAIAPI(text,systemprompt);
+function replyAsMonomane(REPLY_TOKEN,text,systemprompt,userId){
+  const userState=getUserState(userId);
+  let conversationLogArray=userState.conversationLog.split("\n").filter(Boolean);
+
+  const conversationContext=conversationLogArray.slice(-10).join("\n");
+  const promptWithContext=`${conversationContext}\nUser: ${text}`;
+
+  const result=callOpenAIAPI(promptWithContext,systemprompt);
+
+  const newConversation=`User: ${text}\nBot: ${result}`;
+  conversationLogArray.push(newConversation);
+
+  userState.conversationLog=conversationLogArray.join("\n");
+  updateUserState(userId,userState);
+  
   sendReplyMessage(REPLY_TOKEN,result);
 }
 
@@ -118,7 +144,8 @@ function resetParam(userId) {
   const userState = {
     isFileUploaded: false,
     isAnalyzeCompleted: false,
-    openAISystemPrompt: "null"
+    openAISystemPrompt: "null",
+    conversationLog:""
   };
   updateUserState(userId, userState);
 }
